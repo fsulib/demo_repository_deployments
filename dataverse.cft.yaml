@@ -5,6 +5,24 @@ Description: >
 
 Resources:
   
+  CloudFormationUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:DescribeStackResource'
+                Resource: '*'
+
+  CloudFormationUserKeys:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref CloudFormationUser
+
   DataverseLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -43,7 +61,7 @@ Resources:
   DataverseNetworkInterface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
-      SubnetId: !Select [0, !Ref PublicSubnets]
+      SubnetId: !Select [0, !Split [",", "{{resolve:ssm:/vpc/dev/public_subnet_ids}}"]]
       Description: dataverse-demo-network-interface
       GroupSet:
         - !Ref DataverseSecurityGroup
@@ -77,12 +95,7 @@ Resources:
       DesiredCapacity: 1
       MaxSize: 1
       MinSize: 1
-      VPCZoneIdentifier:
-        - !FindInMap [ Environments, !Ref Env, a ]
-        - !FindInMap [ Environments, !Ref Env, b ]
-        - !FindInMap [ Environments, !Ref Env, c ]
-        - !FindInMap [ Environments, !Ref Env, d ]
-        - !FindInMap [ Environments, !Ref Env, f ]
+      VPCZoneIdentifier: !Select [0, !Split [",", "{{resolve:ssm:/vpc/dev/public_subnet_ids}}"]]
       Tags:
         - Key: Name
           PropagateAtLaunch: false
@@ -91,7 +104,8 @@ Resources:
   DataverseSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      VpcId: !Ref VpcId
+      GroupDescription: dataverse-demo-sg 
+      VpcId: "{{resolve:ssm:/vpc/dev/vpc_id}}"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
