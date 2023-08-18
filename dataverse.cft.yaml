@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This template launches a demo Dataverse instance.
+
+Resources:
+  
+  DataverseLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: datavese-demo-launch-template
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: 100 
+              VolumeType: gp3
+        ImageId: ami-0d389fc983d5fd3f4
+        InstanceType: t2.medium 
+        Monitoring:
+          Enabled: true
+        NetworkInterfaces: 
+          - NetworkInterfaceId: !Ref DataverseNetworkInterface 
+        SecurityGroupIds:
+          - !Ref DataverseSecurityGroup
+        UserData:
+          Fn::Base64:
+            Fn::Sub: 
+              - |
+                #!/bin/bash -xe
+                echo "hello" > /tmp/hello.txt
+
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub datavese-demo-instance 
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: !Sub dataverse-demo-root-volume
+
+  DataverseNetworkInterface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Select [0, !Ref PublicSubnets]
+      Description: dataverse-demo-network-interface
+      GroupSet:
+        - !Ref DataverseSecurityGroup
+      SourceDestCheck: true
+      Tags:
+        - Key: Name
+          Value: !Sub dataverse-demo-network-interface
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref DataverseLaunchTemplate
+        Version: !GetAtt DataverseLaunchTemplate.LatestVersionNumber
+
+  DataverseScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: false
+    CreationPolicy:
+      AutoScalingCreationPolicy:
+        MinSuccessfulInstancesPercent: 100
+      ResourceSignal:
+        Count: 1
+        Timeout: PT20M
+    Properties:
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref DataverseLaunchTemplate
+        Version: !GetAtt DataverseLaunchTemplate.LatestVersionNumber
+      DesiredCapacity: 1
+      MaxSize: 1
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref TargetGroup80
+        - !Ref TargetGroup443
+      VPCZoneIdentifier:
+        - !FindInMap [ Environments, !Ref Env, a ]
+        - !FindInMap [ Environments, !Ref Env, b ]
+        - !FindInMap [ Environments, !Ref Env, c ]
+        - !FindInMap [ Environments, !Ref Env, d ]
+        - !FindInMap [ Environments, !Ref Env, f ]
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: false
+          Value: dataverse-demo-asg
+
+  DataverseSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: dataverse-demo-sg
+
+  EIPAssoc:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      AllocationId: eipalloc-0fd97de2eb8858ad9
+      NetworkInterfaceId: !Ref DataverseNetworkInterface
