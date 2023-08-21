@@ -45,6 +45,8 @@ Resources:
               DeleteOnTermination: true
               VolumeSize: 100 
               VolumeType: gp3
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
         ImageId: ami-0d389fc983d5fd3f4
         InstanceType: t2.medium 
         Monitoring:
@@ -109,3 +111,28 @@ Resources:
     Properties:
       AllocationId: eipalloc-0fd97de2eb8858ad9
       NetworkInterfaceId: !Ref DataverseNetworkInterface
+
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/fsulib/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+  
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: DataverseProfile
+      Roles:
+        - !Ref Role
+
+
