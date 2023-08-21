@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Parameters:
 
   PublicSubnetWad:
-    Type: AWS::SSM::Parameter::Value<List<String>>
+    Type: AWS::SSM::Parameter::Value<CommaDelimitedList>
     Description: Parameter name of comma-separated list of public subnets.
     AllowedValues:
       - /vpc/dev/public_subnet_ids
@@ -75,9 +75,7 @@ Resources:
       SubnetId: 
         Fn::Select:
           - 0
-          - Fn::Split:
-              - ","
-              - !Ref PublicSubnetWad
+          - !Ref PublicSubnetWad
       Description: dataverse-demo-network-interface
       GroupSet:
         - !Ref DataverseSecurityGroup
@@ -114,9 +112,7 @@ Resources:
       VPCZoneIdentifier: 
         Fn::Select:
           - 0
-          - Fn::Split:
-              - ","
-              - !Ref PublicSubnetWad
+          - !Ref PublicSubnetWad
       Tags:
         - Key: Name
           PropagateAtLaunch: false
