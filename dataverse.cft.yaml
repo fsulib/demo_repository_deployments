@@ -1,5 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Parameters:
+
+  PublicSubnetWad:
+    Type: AWS::SSM::Parameter::Value<List<String>>
+    Description: Parameter name of comma-separated list of public subnets.
+    AllowedValues:
+      - /vpc/dev/public_subnet_ids
+      - /vpc/test/public_subnet_ids
+      - /vpc/prod/public_subnet_ids
+    Default: /vpc/dev/public_subnet_ids
+
 Description: >
   This template launches a demo Dataverse instance.
 
@@ -61,7 +72,12 @@ Resources:
   DataverseNetworkInterface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
-      SubnetId: !Select [0, !Split [",", "{{resolve:ssm:/vpc/dev/public_subnet_ids}}"]]
+      SubnetId: 
+        Fn::Select:
+          - 0
+          - Fn::Split:
+              - ","
+              - !Ref PublicSubnetWad
       Description: dataverse-demo-network-interface
       GroupSet:
         - !Ref DataverseSecurityGroup
@@ -95,7 +111,12 @@ Resources:
       DesiredCapacity: 1
       MaxSize: 1
       MinSize: 1
-      VPCZoneIdentifier: !Select [0, !Split [",", "{{resolve:ssm:/vpc/dev/public_subnet_ids}}"]]
+      VPCZoneIdentifier: 
+        Fn::Select:
+          - 0
+          - Fn::Split:
+              - ","
+              - !Ref PublicSubnetWad
       Tags:
         - Key: Name
           PropagateAtLaunch: false
