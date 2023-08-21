@@ -49,10 +49,9 @@ Resources:
         InstanceType: t2.medium 
         Monitoring:
           Enabled: true
-        NetworkInterfaces: 
+        NetworkInterfaces:
           - NetworkInterfaceId: !Ref DataverseNetworkInterface 
-        SecurityGroupIds:
-          - !Ref DataverseSecurityGroup
+            DeviceIndex: 0
         UserData:
           Fn::Base64:
             !Sub |
@@ -90,33 +89,6 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref DataverseLaunchTemplate
         Version: !GetAtt DataverseLaunchTemplate.LatestVersionNumber
-
-  DataverseScalingGroup:
-    Type: 'AWS::AutoScaling::AutoScalingGroup'
-    UpdatePolicy:
-      AutoScalingReplacingUpdate:
-        WillReplace: false
-    CreationPolicy:
-      AutoScalingCreationPolicy:
-        MinSuccessfulInstancesPercent: 100
-      ResourceSignal:
-        Count: 1
-        Timeout: PT20M
-    Properties:
-      LaunchTemplate: 
-        LaunchTemplateId: !Ref DataverseLaunchTemplate
-        Version: !GetAtt DataverseLaunchTemplate.LatestVersionNumber
-      DesiredCapacity: 1
-      MaxSize: 1
-      MinSize: 1
-      VPCZoneIdentifier: 
-        Fn::Select:
-          - 0
-          - !Ref PublicSubnetWad
-      Tags:
-        - Key: Name
-          PropagateAtLaunch: false
-          Value: dataverse-demo-asg
 
   DataverseSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
