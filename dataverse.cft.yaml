@@ -11,6 +11,10 @@ Parameters:
       - /vpc/prod/public_subnet_ids
     Default: /vpc/dev/public_subnet_ids
 
+  InstanceType:
+    Type: String
+    Default: m5.xlarge
+
 Description: >
   This template launches a demo Dataverse instance.
 
@@ -47,8 +51,8 @@ Resources:
               VolumeType: gp3
         IamInstanceProfile:
           Arn: !GetAtt InstanceProfile.Arn
-        ImageId: ami-0d389fc983d5fd3f4
-        InstanceType: t2.medium 
+        ImageId: '{{resolve:ssm:/images/ami/docker-host-image-for-ubuntu-20-04}}'
+        InstanceType: !Ref InstanceType
         Monitoring:
           Enabled: true
         NetworkInterfaces:
@@ -110,10 +114,19 @@ Resources:
         - Key: Name
           Value: dataverse-demo-sg
 
-  EIPAssoc:
-    Type: 'AWS::EC2::EIPAssociation'
+  EIP:
+    Type: AWS::EC2::EIP
     Properties:
-      AllocationId: eipalloc-0fd97de2eb8858ad9
+      Tags:
+        - Key: Name
+          Value: Dataverse-Dev
+        - Key: lib:app
+          Value: dataverse
+
+  EIPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt EIP.AllocationId
       NetworkInterfaceId: !Ref DataverseNetworkInterface
 
   Role:
@@ -135,8 +148,12 @@ Resources:
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
-      InstanceProfileName: DataverseProfile
+      InstanceProfileName: !Sub DataverseProfile_${AWS::Region}
       Roles:
         - !Ref Role
 
+Outputs:
 
+  IpAddress:
+    Description: Elastic IP Address
+    Value: !GetAtt EIP.PublicIp
