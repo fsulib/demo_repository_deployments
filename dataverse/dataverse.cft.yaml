@@ -62,11 +62,8 @@ Resources:
           Fn::Base64:
             !Sub |
               #!/bin/bash -xe
-              apt update
-              apt install docker-compose -y
-              cd /
-              git clone https://github.com/fsulib/dataverse-demo
-              bash /dataverse-demo/dataverse-build.sh
+              cd /; git clone https://github.com/fsulib/demo_repository_deployments
+              /demo_repository_deployments/dataverse/dataverse.build.sh
 
         TagSpecifications:
           - ResourceType: instance
