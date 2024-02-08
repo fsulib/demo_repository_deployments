@@ -13,6 +13,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docke
 apt update
 apt -y install docker-ce docker-compose
 
-# Run Datavse demo build
-git clone https://github.com/fsulib/demo_repository_deployments /demo_repository_deployments
-bash /demo_repository_deployments/dataverse/demo-dataverse-build.sh
+# Run Dataverse demo build
+cd /
+git clone https://github.com/fsulib/demo_repository_deployments
+/demo_repository_deployments/dataverse/dataverse.build.sh
