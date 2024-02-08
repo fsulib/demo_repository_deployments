@@ -14,4 +14,5 @@ apt update
 apt -y install docker-ce docker-compose
 
 # Run Datavse demo build
-bash /dataverse-demo/dataverse-build.sh
+git clone https://github.com/fsulib/demo_repository_deployments /demo_repository_deployments
+bash /demo_repository_deployments/dataverse/demo-dataverse-build.sh
