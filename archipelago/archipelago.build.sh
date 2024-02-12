@@ -11,7 +11,11 @@ apt update
 apt -y install docker-ce docker-compose
 
 cd /; git clone --branch 1.3.0 https://github.com/esmero/archipelago-deployment
-cd /archipelago-deployment
+cd /archipelago-deployment; git checkout 1.3.0
 cp /demo_repository_deployments/archipelago/archipelago.docker-compose.yml /archipelago-deployment/docker-compose.yml
 docker-compose pull
 docker-compose up -d
+chown -R 8183:8183 persistent/iiifcache
+chown -R 8983:8983 persistent/solrcore
+docker exec -ti esmero-php bash -c "chown -R www-data:www-data private"
+docker exec -ti esmero-minio bash -c "cd /root; curl https://dl.min.io/client/mc/release/linux-amd64/mc --output mc; chmod +x mc; mv mc /usr/local/bin/"

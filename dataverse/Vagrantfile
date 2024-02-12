@@ -4,8 +4,8 @@ Vagrant.configure("2") do |config|
   path: "dataverse.build.sh",
   keep_color: true
   config.vm.synced_folder "..", "/demo_repository_deployments", :mount_options => ["dmode=777","fmode=777"]
-  config.vm.network :forwarded_port, host: 9999, guest: 80
   config.vm.network :forwarded_port, host: 8080, guest: 8080
+  config.vm.network :forwarded_port, host: 80, guest: 80
   config.vbguest.auto_update = false
   config.vm.define 'dataverse' do |t|
     config.vm.provider :virtualbox do |v|
