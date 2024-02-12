@@ -1,0 +1,465 @@
+name: isle-dc
+services:
+  activemq:
+    deploy:
+      resources:
+        limits:
+          memory: "2147483648"
+        reservations:
+          memory: "1073741824"
+    image: islandora/activemq:3.0.0
+    labels:
+      traefik.enable: "false"
+      traefik.http.routers.isle-dc-activemq_http.entrypoints: activemq
+      traefik.http.routers.isle-dc-activemq_http.service: isle-dc-activemq
+      traefik.http.services.isle-dc-activemq.loadbalancer.server.port: "8161"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: activemq-data
+        target: /opt/activemq/data
+        volume: {}
+  alpaca:
+    deploy:
+      resources:
+        limits:
+          memory: "2147483648"
+        reservations:
+          memory: "1073741824"
+    environment:
+      ALPACA_FITS_TIMEOUT: "300000"
+      ALPACA_HOMARUS_TIMEOUT: "300000"
+      ALPACA_HOUDINI_TIMEOUT: "300000"
+      ALPACA_OCR_TIMEOUT: "300000"
+    image: islandora/alpaca:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  blazegraph:
+    deploy:
+      resources:
+        limits:
+          memory: "5368709120"
+        reservations:
+          memory: "2147483648"
+    image: islandora/blazegraph:3.0.0
+    labels:
+      traefik.enable: "false"
+      traefik.http.routers.isle-dc-blazegraph_http.entrypoints: blazegraph
+      traefik.http.routers.isle-dc-blazegraph_http.service: isle-dc-blazegraph
+      traefik.http.services.isle-dc-blazegraph.loadbalancer.server.port: "8080"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: blazegraph-data
+        target: /data
+        volume: {}
+  cantaloupe:
+    deploy:
+      resources:
+        limits:
+          memory: "5368709120"
+        reservations:
+          memory: "1073741824"
+    environment:
+      CANTALOUPE_DELEGATE_SCRIPT_ENABLED: "false"
+      CANTALOUPE_DELEGATE_SCRIPT_PATHNAME: /opt/tomcat/bin/delegates.rb
+      CANTALOUPE_HTTPSOURCE_LOOKUP_STRATEGY: BasicLookupStrategy
+    image: islandora/cantaloupe:3.0.0
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.cantaloupe-custom-request-headers.headers.customrequestheaders.X-Forwarded-Path: /cantaloupe
+      traefik.http.middlewares.cantaloupe-redirectscheme.redirectscheme.permanent: "true"
+      traefik.http.middlewares.cantaloupe-redirectscheme.redirectscheme.scheme: https
+      traefik.http.middlewares.cantaloupe-strip-prefix.stripprefix.prefixes: /cantaloupe
+      traefik.http.middlewares.cantaloupe.chain.middlewares: cantaloupe-strip-prefix,cantaloupe-custom-request-headers
+      traefik.http.routers.isle-dc-cantaloupe_http.entrypoints: http
+      traefik.http.routers.isle-dc-cantaloupe_http.middlewares: cantaloupe-redirectscheme
+      traefik.http.routers.isle-dc-cantaloupe_http.rule: Host(`localhost`) && PathPrefix(`/cantaloupe`)
+      traefik.http.routers.isle-dc-cantaloupe_http.service: isle-dc-cantaloupe
+      traefik.http.routers.isle-dc-cantaloupe_https.entrypoints: https
+      traefik.http.routers.isle-dc-cantaloupe_https.middlewares: cantaloupe
+      traefik.http.routers.isle-dc-cantaloupe_https.rule: Host(`localhost`) && PathPrefix(`/cantaloupe`)
+      traefik.http.routers.isle-dc-cantaloupe_https.tls: "true"
+      traefik.http.services.isle-dc-cantaloupe.loadbalancer.server.port: "8182"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: cantaloupe-data
+        target: /data
+        volume: {}
+  crayfits:
+    depends_on:
+      fits:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    image: islandora/crayfits:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  drupal:
+    depends_on:
+      mariadb:
+        condition: service_started
+        required: true
+      traefik:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "5368709120"
+        reservations:
+          memory: "268435456"
+    environment:
+      DRUPAL_DEFAULT_CANTALOUPE_URL: https://localhost/cantaloupe/iiif/2
+      DRUPAL_DEFAULT_DB_DRIVER: mysql
+      DRUPAL_DEFAULT_DB_HOST: mariadb
+      DRUPAL_DEFAULT_DB_PORT: "3306"
+      DRUPAL_DEFAULT_FCREPO_HOST: localhost
+      DRUPAL_DEFAULT_FCREPO_PORT: "8081"
+      DRUPAL_DEFAULT_INSTALL_EXISTING_CONFIG: "false"
+      DRUPAL_DEFAULT_MATOMO_URL: https://localhost/matomo/
+      DRUPAL_DEFAULT_PROFILE: standard
+      DRUPAL_DEFAULT_SITE_URL: http://localhost
+      PHP_MAX_EXECUTION_TIME: "30"
+      PHP_MEMORY_LIMIT: 256M
+      PHP_POST_MAX_SIZE: 128M
+      PHP_UPLOAD_MAX_FILESIZE: 128M
+    image: islandora/drupal:3.0.0
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.drupal-redirectscheme.redirectscheme.permanent: "true"
+      traefik.http.middlewares.drupal-redirectscheme.redirectscheme.scheme: https
+      traefik.http.routers.isle-dc-drupal_http.entrypoints: http
+      traefik.http.routers.isle-dc-drupal_http.middlewares: drupal-redirectscheme
+      traefik.http.routers.isle-dc-drupal_http.rule: Host(`localhost`)
+      traefik.http.routers.isle-dc-drupal_http.service: isle-dc-drupal
+      traefik.http.routers.isle-dc-drupal_https.entrypoints: https
+      traefik.http.routers.isle-dc-drupal_https.rule: Host(`localhost`)
+      traefik.http.routers.isle-dc-drupal_https.tls: "true"
+      traefik.http.services.isle-dc-drupal.loadbalancer.server.port: "80"
+    networks:
+      default: null
+      gateway: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: solr-data
+        target: /opt/solr/server/solr
+        volume: {}
+      - type: bind
+        source: /isle-dc/codebase
+        target: /var/www/drupal
+        bind:
+          create_host_path: true
+      - type: volume
+        source: drupal-sites-data
+        target: /var/www/drupal/web/sites/default/files
+        volume: {}
+  fcrepo:
+    depends_on:
+      activemq:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "5368709120"
+        reservations:
+          memory: "1073741824"
+    environment:
+      FCREPO_ALLOW_EXTERNAL_DRUPALHTTP: http://localhost/
+      FCREPO_ALLOW_EXTERNAL_DRUPALHTTPS: https://localhost/
+      FCREPO_DISABLE_SYN: "false"
+      FCREPO_PERSISTENCE_TYPE: mysql
+      FCREPO_TOMCAT_ADMIN_ROLES: manager-gui,fedoraAdmin
+      FCREPO_TOMCAT_ADMIN_USER: admin
+    image: islandora/fcrepo6:3.0.0
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.isle-dc-fcrepo_http.entrypoints: fcrepo
+      traefik.http.routers.isle-dc-fcrepo_http.service: isle-dc-fcrepo
+      traefik.http.services.isle-dc-fcrepo.loadbalancer.server.port: "8080"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: fcrepo-data
+        target: /data
+        volume: {}
+  fits:
+    deploy:
+      resources:
+        limits:
+          memory: "5368709120"
+        reservations:
+          memory: "1048576000"
+    image: islandora/fits:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  homarus:
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    image: islandora/homarus:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  houdini:
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    image: islandora/houdini:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  hypercube:
+    deploy:
+      resources:
+        limits:
+          memory: "536870912"
+        reservations:
+          memory: "268435456"
+    image: islandora/hypercube:3.0.0
+    networks:
+      default: null
+    restart: unless-stopped
+  mariadb:
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    image: islandora/mariadb:3.0.0
+    labels:
+      traefik.enable: "false"
+      traefik.tcp.routers.isle-dc-mysql_tcp.entrypoints: mysql
+      traefik.tcp.routers.isle-dc-mysql_tcp.rule: HostSNI(`*`)
+      traefik.tcp.routers.isle-dc-mysql_tcp.service: isle-dc-mysql
+      traefik.tcp.services.isle-dc-mysql.loadbalancer.server.port: "3306"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: mariadb-data
+        target: /var/lib/mysql
+        volume: {}
+      - type: volume
+        source: mariadb-files
+        target: /var/lib/mysql-files
+        volume: {}
+  matomo:
+    depends_on:
+      mariadb:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    environment:
+      MATOMO_DEFAULT_HOST: localhost
+    image: islandora/matomo:3.0.0
+    labels:
+      traefik.enable: "true"
+      traefik.http.middlewares.isle-dc-matomo-customrequestheaders.headers.customrequestheaders.X-Forwarded-Uri: /matomo
+      traefik.http.middlewares.isle-dc-matomo-redirectscheme.redirectscheme.permanent: "true"
+      traefik.http.middlewares.isle-dc-matomo-redirectscheme.redirectscheme.scheme: https
+      traefik.http.middlewares.isle-dc-matomo-stripprefix.stripprefix.prefixes: /matomo
+      traefik.http.middlewares.isle-dc-matomo.chain.middlewares: isle-dc-matomo-stripprefix,isle-dc-matomo-customrequestheaders
+      traefik.http.routers.isle-dc-matomo_http.entrypoints: http
+      traefik.http.routers.isle-dc-matomo_http.middlewares: isle-dc-matomo-redirectscheme
+      traefik.http.routers.isle-dc-matomo_http.rule: Host(`localhost`) && PathPrefix(`/matomo`)
+      traefik.http.routers.isle-dc-matomo_http.service: isle-dc-matomo
+      traefik.http.routers.isle-dc-matomo_https.entrypoints: https
+      traefik.http.routers.isle-dc-matomo_https.middlewares: isle-dc-matomo
+      traefik.http.routers.isle-dc-matomo_https.rule: Host(`localhost`) && PathPrefix(`/matomo`)
+      traefik.http.routers.isle-dc-matomo_https.tls: "true"
+      traefik.http.services.isle-dc-matomo.loadbalancer.server.port: "80"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: matomo-config-data
+        target: /var/www/matomo
+        volume: {}
+  milliner:
+    deploy:
+      resources:
+        limits:
+          memory: "1073741824"
+        reservations:
+          memory: "536870912"
+    environment:
+      MILLINER_FEDORA6: "true"
+    image: islandora/milliner:3.0.0
+    networks:
+      default: null
+      gateway: null
+    restart: unless-stopped
+  solr:
+    deploy:
+      resources:
+        limits:
+          memory: "8589934592"
+        reservations:
+          memory: "6442450944"
+    image: islandora/solr:3.0.0
+    labels:
+      traefik.enable: "false"
+      traefik.http.routers.isle-dc-solr_http.entrypoints: solr
+      traefik.http.routers.isle-dc-solr_http.service: isle-dc-solr
+      traefik.http.services.isle-dc-solr.loadbalancer.server.port: "8983"
+    networks:
+      default: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: solr-data
+        target: /opt/solr/server/solr
+        volume: {}
+  traefik:
+    command:
+      - --api.insecure=false
+      - --api.dashboard=false
+      - --api.debug=false
+      - --entryPoints.http.address=:80
+      - --entryPoints.https.address=:443
+      - --entryPoints.mysql.address=:3306
+      - --entryPoints.postgresql.address=:5432
+      - --entryPoints.fcrepo.address=:8081
+      - --entryPoints.blazegraph.address=:8082
+      - --entryPoints.activemq.address=:8161
+      - --entryPoints.solr.address=:8983
+      - --entryPoints.code-server.address=:8443
+      - --log.level=ERROR
+      - --providers.docker
+      - --providers.docker.network=gateway
+      - --providers.docker.exposedByDefault=false
+      - --providers.file.filename=/etc/traefik/tls.yml
+      - --providers.docker.defaultRule=Host(`localhost`)
+    container_name: traefik
+    deploy:
+      resources:
+        limits:
+          memory: "8589934592"
+        reservations:
+          memory: "4294967296"
+    image: traefik:2.10.5
+    labels:
+      traefik.http.routers.api.service: api@internal
+    networks:
+      default:
+        aliases:
+          - localhost
+      gateway: {}
+    ports:
+      - mode: ingress
+        target: 80
+        published: "80"
+        protocol: tcp
+      - mode: ingress
+        target: 443
+        published: "443"
+        protocol: tcp
+      - mode: ingress
+        target: 8081
+        published: "8081"
+        protocol: tcp
+      - mode: ingress
+        target: 3306
+        published: "3306"
+        protocol: tcp
+      - mode: ingress
+        target: 5432
+        published: "5432"
+        protocol: tcp
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+      - mode: ingress
+        target: 8082
+        published: "8082"
+        protocol: tcp
+      - mode: ingress
+        target: 8161
+        published: "8161"
+        protocol: tcp
+      - mode: ingress
+        target: 8983
+        published: "8983"
+        protocol: tcp
+      - mode: ingress
+        target: 8443
+        published: "8443"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /isle-dc/build/traefik-tls.yml
+        target: /etc/traefik/tls.yml
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /isle-dc/certs
+        target: /etc/ssl/traefik
+        bind:
+          create_host_path: true
+networks:
+  default:
+    name: isle-dc_default
+    internal: true
+  gateway:
+    name: isle-dc_gateway
+    driver: bridge
+volumes:
+  activemq-data:
+    name: isle-dc_activemq-data
+  blazegraph-data:
+    name: isle-dc_blazegraph-data
+  cantaloupe-data:
+    name: isle-dc_cantaloupe-data
+  drupal-sites-data:
+    name: isle-dc_drupal-sites-data
+  fcrepo-data:
+    name: isle-dc_fcrepo-data
+  mariadb-data:
+    name: isle-dc_mariadb-data
+  mariadb-files:
+    name: isle-dc_mariadb-files
+  matomo-config-data:
+    name: isle-dc_matomo-config-data
+  solr-data:
+    name: isle-dc_solr-data
