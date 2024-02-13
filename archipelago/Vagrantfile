@@ -10,7 +10,6 @@ Vagrant.configure("2") do |config|
   config.vm.network :forwarded_port, host: 8983, guest: 8983
   config.vm.network :forwarded_port, host: 8183, guest: 8183
   config.vm.network :forwarded_port, host: 8182, guest: 8182
-  config.vm.network :forwarded_port, host: 8080, guest: 8080
   config.vm.network :forwarded_port, host: 8001, guest: 8001
   config.vm.network :forwarded_port, host: 6400, guest: 6400
   config.vbguest.auto_update = false

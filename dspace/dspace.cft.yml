@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This template launches a demo DSpace instance.
+
+Parameters:
+
+  PublicSubnetWad:
+    Type: AWS::SSM::Parameter::Value<CommaDelimitedList>
+    Description: Parameter name of comma-separated list of public subnets.
+    AllowedValues:
+      - /vpc/dev/public_subnet_ids
+    Default: /vpc/dev/public_subnet_ids
+
+Resources:
+  
+  CloudFormationUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:DescribeStackResource'
+                Resource: '*'
+
+  CloudFormationUserKeys:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref CloudFormationUser
+
+  DspaceLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: dspace-launch-template
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: 100 
+              VolumeType: gp3
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        ImageId: '{{resolve:ssm:/images/ami/docker-host-image-for-ubuntu-20-04}}'
+        InstanceType: 'm5.xlarge'
+        Monitoring:
+          Enabled: true
+        NetworkInterfaces:
+          - NetworkInterfaceId: !Ref DspaceNetworkInterface 
+            DeviceIndex: 0
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash -xe
+              cd /; git clone https://github.com/fsulib/demo_repository_deployments
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: dspace-instance 
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: dspace-root-volume
+
+  DspaceNetworkInterface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: 
+        Fn::Select:
+          - 0
+          - !Ref PublicSubnetWad
+      Description: dspace-network-interface
+      GroupSet:
+        - !Ref DspaceSecurityGroup
+      SourceDestCheck: true
+      Tags:
+        - Key: Name
+          Value: dspace-network-interface
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref DspaceLaunchTemplate
+        Version: !GetAtt DspaceLaunchTemplate.LatestVersionNumber
+
+  DspaceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: dspace-demo-sg 
+      VpcId: "{{resolve:ssm:/vpc/dev/vpc_id}}"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 4000
+          ToPort: 4000
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: dspace-demo-sg
+
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/fsulib/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+  
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: !Sub DspaceProfile_${AWS::Region}
+      Roles:
+        - !Ref Role

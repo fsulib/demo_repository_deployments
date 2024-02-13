@@ -1,5 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Description: >
+  This template launches a demo Islandora instance.
+
 Parameters:
 
   PublicSubnetWad:
@@ -7,16 +10,7 @@ Parameters:
     Description: Parameter name of comma-separated list of public subnets.
     AllowedValues:
       - /vpc/dev/public_subnet_ids
-      - /vpc/test/public_subnet_ids
-      - /vpc/prod/public_subnet_ids
     Default: /vpc/dev/public_subnet_ids
-
-  InstanceType:
-    Type: String
-    Default: m5.xlarge
-
-Description: >
-  This template launches a demo Dataverse instance.
 
 Resources:
   
@@ -38,10 +32,10 @@ Resources:
     Properties:
       UserName: !Ref CloudFormationUser
 
-  DataverseLaunchTemplate:
+  IslandoraLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateName: datavese-demo-launch-template
+      LaunchTemplateName: islandora-launch-template
       LaunchTemplateData:
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
@@ -52,79 +46,71 @@ Resources:
         IamInstanceProfile:
           Arn: !GetAtt InstanceProfile.Arn
         ImageId: '{{resolve:ssm:/images/ami/docker-host-image-for-ubuntu-20-04}}'
-        InstanceType: !Ref InstanceType
+        InstanceType: 'm5.xlarge'
         Monitoring:
           Enabled: true
         NetworkInterfaces:
-          - NetworkInterfaceId: !Ref DataverseNetworkInterface 
+          - NetworkInterfaceId: !Ref IslandoraNetworkInterface 
             DeviceIndex: 0
         UserData:
           Fn::Base64:
             !Sub |
               #!/bin/bash -xe
               cd /; git clone https://github.com/fsulib/demo_repository_deployments
-              /demo_repository_deployments/dataverse/dataverse.build.sh
-
         TagSpecifications:
           - ResourceType: instance
             Tags:
               - Key: Name
-                Value: datavese-demo-instance 
+                Value: islandora-instance 
           - ResourceType: volume
             Tags:
               - Key: Name
-                Value: dataverse-demo-root-volume
+                Value: islandora-root-volume
 
-  DataverseNetworkInterface:
+  IslandoraNetworkInterface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: 
         Fn::Select:
           - 0
           - !Ref PublicSubnetWad
-      Description: dataverse-demo-network-interface
+      Description: islandora-network-interface
       GroupSet:
-        - !Ref DataverseSecurityGroup
+        - !Ref IslandoraSecurityGroup
       SourceDestCheck: true
       Tags:
         - Key: Name
-          Value: dataverse-demo-network-interface
+          Value: islandora-network-interface
 
   Instance:
     Type: AWS::EC2::Instance
     Properties:
       LaunchTemplate:
-        LaunchTemplateId: !Ref DataverseLaunchTemplate
-        Version: !GetAtt DataverseLaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref IslandoraLaunchTemplate
+        Version: !GetAtt IslandoraLaunchTemplate.LatestVersionNumber
 
-  DataverseSecurityGroup:
+  IslandoraSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: dataverse-demo-sg 
+      GroupDescription: islandora-demo-sg 
       VpcId: "{{resolve:ssm:/vpc/dev/vpc_id}}"
       SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: 0.0.0.0/0
+
       Tags:
         - Key: Name
-          Value: dataverse-demo-sg
-
-  EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-      Tags:
-        - Key: Name
-          Value: Dataverse-Dev
-        - Key: lib:app
-          Value: dataverse
-
-  EIPAssoc:
-    Type: AWS::EC2::EIPAssociation
-    Properties:
-      AllocationId: !GetAtt EIP.AllocationId
-      NetworkInterfaceId: !Ref DataverseNetworkInterface
+          Value: islandora-demo-sg
 
   Role:
     Type: AWS::IAM::Role
@@ -145,12 +131,6 @@ Resources:
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
-      InstanceProfileName: !Sub DataverseProfile_${AWS::Region}
+      InstanceProfileName: !Sub IslandoraProfile_${AWS::Region}
       Roles:
         - !Ref Role
-
-Outputs:
-
-  IpAddress:
-    Description: Elastic IP Address
-    Value: !GetAtt EIP.PublicIp

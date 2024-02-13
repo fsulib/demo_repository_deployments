@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  This template launches a demo Archipelago instance.
+
+Parameters:
+
+  PublicSubnetWad:
+    Type: AWS::SSM::Parameter::Value<CommaDelimitedList>
+    Description: Parameter name of comma-separated list of public subnets.
+    AllowedValues:
+      - /vpc/dev/public_subnet_ids
+    Default: /vpc/dev/public_subnet_ids
+
+Resources:
+  
+  CloudFormationUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:DescribeStackResource'
+                Resource: '*'
+
+  CloudFormationUserKeys:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref CloudFormationUser
+
+  ArchipelagoLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: archipelago-launch-template
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: 100 
+              VolumeType: gp3
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        ImageId: '{{resolve:ssm:/images/ami/docker-host-image-for-ubuntu-20-04}}'
+        InstanceType: 'm5.xlarge'
+        Monitoring:
+          Enabled: true
+        NetworkInterfaces:
+          - NetworkInterfaceId: !Ref ArchipelagoNetworkInterface 
+            DeviceIndex: 0
+        UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash -xe
+              cd /; git clone https://github.com/fsulib/demo_repository_deployments
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: archipelago-instance 
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: archipelago-root-volume
+
+  ArchipelagoNetworkInterface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: 
+        Fn::Select:
+          - 0
+          - !Ref PublicSubnetWad
+      Description: archipelago-network-interface
+      GroupSet:
+        - !Ref ArchipelagoSecurityGroup
+      SourceDestCheck: true
+      Tags:
+        - Key: Name
+          Value: archipelago-network-interface
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ArchipelagoLaunchTemplate
+        Version: !GetAtt ArchipelagoLaunchTemplate.LatestVersionNumber
+
+  ArchipelagoSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: archipelago-demo-sg 
+      VpcId: "{{resolve:ssm:/vpc/dev/vpc_id}}"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6400
+          ToPort: 6400
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8001
+          ToPort: 8001
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8182
+          ToPort: 8182
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8183
+          ToPort: 8183
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8983
+          ToPort: 8983
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9000
+          ToPort: 9000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9001
+          ToPort: 9001
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: archipelago-demo-sg
+
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/fsulib/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+  
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: !Sub ArchipelagoProfile_${AWS::Region}
+      Roles:
+        - !Ref Role
