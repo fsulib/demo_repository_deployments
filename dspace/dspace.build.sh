@@ -10,8 +10,10 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docke
 apt update
 apt -y install docker-ce docker-compose
 
+cd /; git clone https://github.com/fsulib/demo_repository_deployments
 cd /; git clone https://github.com/DSpace/dspace-angular
 cd /dspace-angular; git checkout dspace-7_x
+cp /demo_repository_deployments/dspace/custom.cli.yml /dspace-angular/docker/cli.yml
 docker-compose -f docker/docker-compose.yml -f docker/docker-compose-rest.yml pull
 docker-compose -p d7 -f docker/docker-compose.yml -f docker/docker-compose-rest.yml -f docker/db.entities.yml up -d
 docker network create docker_dspacenet
