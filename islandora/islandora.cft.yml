@@ -46,7 +46,7 @@ Resources:
         IamInstanceProfile:
           Arn: !GetAtt InstanceProfile.Arn
         ImageId: '{{resolve:ssm:/images/ami/docker-host-image-for-ubuntu-20-04}}'
-        InstanceType: 'm5.xlarge'
+        InstanceType: 'm5.large'
         Monitoring:
           Enabled: true
         NetworkInterfaces:
