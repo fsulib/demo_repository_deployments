@@ -1,18 +1,12 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/jammy64"
-  config.vm.provision :shell, 
-  path: "archipelago.build.sh",
-  keep_color: true
   config.vm.synced_folder "..", "/demo_repository_deployments", :mount_options => ["dmode=777","fmode=777"]
-  config.vm.network :forwarded_port, host: 9999, guest: 80
-  config.vm.network :forwarded_port, host: 9001, guest: 9001
-  config.vm.network :forwarded_port, host: 9000, guest: 9000
-  config.vm.network :forwarded_port, host: 8983, guest: 8983
   config.vm.network :forwarded_port, host: 8183, guest: 8183
-  config.vm.network :forwarded_port, host: 8182, guest: 8182
   config.vm.network :forwarded_port, host: 8001, guest: 8001
-  config.vm.network :forwarded_port, host: 6400, guest: 6400
-  config.vbguest.auto_update = false
+  #config.vbguest.auto_update = false
+  config.vm.provision :shell, 
+    inline: "/demo_repository_deployments/archipelago/archipelago.build.sh >> /root/archipelago.build.log",
+    keep_color: true
   config.vm.define 'archipelago' do |t|
     config.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--memory", 10240]

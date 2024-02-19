@@ -57,6 +57,7 @@ Resources:
             !Sub |
               #!/bin/bash -xe
               cd /; git clone https://github.com/fsulib/demo_repository_deployments
+              /demo_repository_deployments/archipelago/archipelago.build.sh >> /root/archipelago.build.log
         TagSpecifications:
           - ResourceType: instance
             Tags:
@@ -96,38 +97,13 @@ Resources:
       VpcId: "{{resolve:ssm:/vpc/dev/vpc_id}}"
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 6400
-          ToPort: 6400
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
           FromPort: 8001
           ToPort: 8001
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8182
-          ToPort: 8182
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 8183
           ToPort: 8183
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8983
-          ToPort: 8983
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 9000
-          ToPort: 9000
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 9001
-          ToPort: 9001
-          CidrIp: 0.0.0.0/0
-
       Tags:
         - Key: Name
           Value: archipelago-demo-sg
